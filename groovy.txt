@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'Patch_Level', defaultValue: '1.0', description: 'Patch Level')
+        string(name: 'Patch_Mode', defaultValue: 'auto', description: 'Patch Mode')
+        string(name: 'Change_Request', defaultValue: 'CR12345', description: 'Change Request ID')
+        text(name: 'Server_List', defaultValue: 'server1\nserver2\nserver3', description: 'List of Server IDs (one per line)')
+    }
+    stages {
+        stage('Run Patching in Parallel') {
+            steps {
+                script {
+                    def servers = params.Server_List.split('\n')
+                    def parallelStages = [:]
+
+                    for (int i = 0; i < servers.size(); i++) {
+                        def server_id = servers[i]
+                        parallelStages["Patching ${server_id}"] = {
+                            stage("Patching ${server_id}") {
+                                sh """
+                                set +x
+                                cd /corb3/automationScripts/patching/Patch_API/config/
+
+                                patch_level="${params.Patch_Level}"
+                                patch_mode="${params.Patch_Mode}"
+                                cr="${params.Change_Request}"
+
+                                perl -pi -e "s/(\\\"PatchLevel\\\":\\s*)\\\"[^\\\"]+\\\"/\\1\\\"$patch_level\\\"/g" PatchServersDummy.json
+                                perl -pi -e "s/(\\\"serverId\\\":\\s*)\\\"[^\\\"]+\\\"/\\1\\\"$server_id\\\"/g" PatchServersDummy.json
+                                perl -pi -e "s/(\\\"PatchMode\\\":\\s*)\\\"[^\\\"]+\\\"/\\1\\\"$patch_mode\\\"/g" PatchServersDummy.json
+                                perl -pi -e "s/(\\\"CR\\\":\\s*)\\\"[^\\\"]+\\\"/\\1\\\"$cr\\\"/g" PatchServersDummy.json
+
+                                cd /corb3/automationScripts/patching/Patch_API
+                                /localwork2/python3/anaconda3/bin/python startPatching.py
+                                """
+                            }
+                        }
+                    }
+
+                    parallel parallelStages
+                }
+            }
+        }
+    }
+}
