@@ -1,3 +1,4 @@
+```python
 from datetime import datetime
 
 def cr_window_check(cr_start_time, cr_end_time):
@@ -20,3 +21,4 @@ def cr_window_check(cr_start_time, cr_end_time):
         return True
     else:
         return False
+```
